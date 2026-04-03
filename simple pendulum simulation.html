@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pendulum: Velocity & Acceleration Vectors | Slow Motion + Adjustable Scale</title>
+    <style>
+        * {
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg-surface);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+        }
+        :root {
+            color-scheme: light dark;
+        }
+        body {
+            --bg-surface: #f8fafc;
+            --card-bg: #ffffffcc;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --border-light: #cbd5e1;
+            --shadow-sm: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.02);
+            --accent-radial: #2c7da0;
+            --accent-tang: #e67e22;
+            --accent-total: #2e7d32;
+            --accent-velocity: #9c27b0;
+            --accent-slowmo: #8b5cf6;
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                --bg-surface: #0f172a;
+                --card-bg: #1e293bb3;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --border-light: #334155;
+                --shadow-sm: 0 10px 25px -5px rgba(0,0,0,0.5);
+                --accent-radial: #5fa8d3;
+                --accent-tang: #f39c4b;
+                --accent-total: #66bb6a;
+                --accent-velocity: #c084fc;
+                --accent-slowmo: #a78bfa;
+            }
+        }
+        .app-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(4px);
+            border-radius: 2rem;
+            padding: 1.2rem 1.5rem 1.5rem 1.5rem;
+            margin: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 0.5px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 28px;
+            background: radial-gradient(circle at 20% 30%, rgba(255,255,240,0.03) 0%, rgba(0,0,0,0.02) 100%);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .ctrl-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-surface);
+            padding: 6px 14px;
+            border-radius: 60px;
+            border: 0.5px solid var(--border-light);
+        }
+        .btn {
+            background: transparent;
+            border: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 5px 14px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+            font-family: inherit;
+        }
+        .btn.active {
+            background: var(--accent-radial);
+            color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+        .btn-vel.active { background: var(--accent-velocity); color: white; }
+        .btn-tang.active { background: var(--accent-tang); color: white; }
+        .btn-total.active { background: var(--accent-total); color: white; }
+        .btn-pause {
+            background: #475569;
+            color: white;
+            border: none;
+        }
+        .btn-pause:hover { background: #1e293b; transform: scale(0.96); }
+        .slowmo-control, .vector-scale-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-surface);
+            padding: 4px 14px;
+            border-radius: 60px;
+            border: 0.5px solid var(--border-light);
+        }
+        .slowmo-control label, .vector-scale-control label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        input[type="range"] {
+            width: 110px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--border-light);
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-slowmo);
+            cursor: pointer;
+        }
+        .value-badge {
+            min-width: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: color-mix(in srgb, currentColor 12%, transparent);
+            padding: 2px 8px;
+            border-radius: 40px;
+            text-align: center;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+            border-top: 0.5px solid var(--border-light);
+            padding-top: 10px;
+            font-size: 0.7rem;
+        }
+        .leg-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: color-mix(in srgb, currentColor 4%, transparent);
+            padding: 3px 10px;
+            border-radius: 40px;
+        }
+        .leg-dot {
+            width: 32px;
+            height: 4px;
+            border-radius: 3px;
+        }
+        @media (max-width: 950px) {
+            .toolbar { gap: 8px; }
+            .ctrl-group { padding: 4px 10px; }
+            .btn { padding: 4px 10px; font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+<div>
+    <div class="app-container">
+        <div class="toolbar">
+            <div class="ctrl-group">
+                <span style="font-weight:700;">⚡ Pendulum: Velocity & Acceleration</span>
+                <div class="slider-container">
+                    <span>θ₀</span>
+                    <input type="range" id="ampSlider" min="5" max="70" value="35" step="1">
+                    <span id="angleValue">35°</span>
+                </div>
+            </div>
+            <div class="ctrl-group">
+                <button id="velBtn" class="btn btn-vel active">🟣 Velocity v</button>
+                <button id="radialBtn" class="btn active">🔵 Radial aᵣ</button>
+                <button id="tangBtn" class="btn active">🟠 Tangential aₜ</button>
+                <button id="totalBtn" class="btn active">🟢 Resultant a</button>
+                <button id="pauseBtn" class="btn btn-pause">⏸️ Pause</button>
+            </div>
+            <div class="slowmo-control">
+                <label>🐢 Slow-mo</label>
+                <input type="range" id="slowmoSlider" min="0.05" max="1.0" step="0.01" value="1.0">
+                <span id="slowmoValue" class="value-badge">1.00x</span>
+            </div>
+            <div class="vector-scale-control">
+                <label>📏 Vector scale</label>
+                <input type="range" id="vectorScaleSlider" min="1.5" max="6.0" step="0.05" value="3.8">
+                <span id="vectorScaleValue" class="value-badge">3.8x</span>
+            </div>
+        </div>
+
+        <canvas id="pendulumCanvas" width="800" height="520" style="width:100%; height:auto; max-width:800px; aspect-ratio:800/520"></canvas>
+
+        <div class="legend">
+            <div class="leg-item"><div class="leg-dot" style="background: #c084fc; width:36px;"></div><span><strong>Velocity v</strong> — tangential direction, magnitude = L·ω</span></div>
+            <div class="leg-item"><div class="leg-dot" style="background: #378ADD;"></div><span><strong>Radial aᵣ</strong> — centripetal (toward pivot)</span></div>
+            <div class="leg-item"><div class="leg-dot" style="background: #D85A30;"></div><span><strong>Tangential aₜ</strong> — along swing</span></div>
+            <div class="leg-item"><div class="leg-dot" style="background: #639922;"></div><span><strong>Resultant a</strong> = aᵣ + aₜ</span></div>
+            <div class="leg-item"><span style="font-size:11px;">💡 Use slow-mo + scale to analyze vector relationships</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // Canvas setup
+        const canvas = document.getElementById('pendulumCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = 800, H = 520;
+        canvas.width = W;
+        canvas.height = H;
+        
+        // Pendulum geometry
+        const pivot = { x: W/2, y: 80 };
+        const L = 240;            // rod length (pixels)
+        const gEarth = 9.8;
+        const PHYS_SCALE = 2.65;   // visual time scaling
+        
+        // State
+        let theta = 35 * Math.PI / 180;
+        let thetaDot = 0;
+        let paused = false;
+        let lastTimestamp = null;
+        
+        // Control factors
+        let slowMotionFactor = 1.0;
+        let vectorScale = 3.8;      // user-adjustable vector length multiplier
+        
+        // Visibility toggles
+        let showVelocity = true;
+        let showRadial = true;
+        let showTang = true;
+        let showTotal = true;
+        
+        // DOM elements
+        const ampSlider = document.getElementById('ampSlider');
+        const angleSpan = document.getElementById('angleValue');
+        const velBtn = document.getElementById('velBtn');
+        const radialBtn = document.getElementById('radialBtn');
+        const tangBtn = document.getElementById('tangBtn');
+        const totalBtn = document.getElementById('totalBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const slowmoSlider = document.getElementById('slowmoSlider');
+        const slowmoValueSpan = document.getElementById('slowmoValue');
+        const vectorScaleSlider = document.getElementById('vectorScaleSlider');
+        const vectorScaleSpan = document.getElementById('vectorScaleValue');
+        
+        // Helper: update button styles
+        function updateButtonStyles() {
+            velBtn.classList.toggle('active', showVelocity);
+            radialBtn.classList.toggle('active', showRadial);
+            tangBtn.classList.toggle('active', showTang);
+            totalBtn.classList.toggle('active', showTotal);
+            
+            velBtn.style.background = showVelocity ? "#9c27b0" : "transparent";
+            radialBtn.style.background = showRadial ? "#378ADD" : "transparent";
+            tangBtn.style.background = showTang ? "#D85A30" : "transparent";
+            totalBtn.style.background = showTotal ? "#639922" : "transparent";
+            
+            velBtn.style.color = showVelocity ? "white" : "var(--text-secondary)";
+            radialBtn.style.color = showRadial ? "white" : "var(--text-secondary)";
+            tangBtn.style.color = showTang ? "white" : "var(--text-secondary)";
+            totalBtn.style.color = showTotal ? "white" : "var(--text-secondary)";
+        }
+        
+        // Toggle handlers
+        function toggleVec(type) {
+            if(type === 'vel') showVelocity = !showVelocity;
+            if(type === 'radial') showRadial = !showRadial;
+            if(type === 'tang') showTang = !showTang;
+            if(type === 'total') showTotal = !showTotal;
+            updateButtonStyles();
+            if(paused) drawScene();
+        }
+        
+        velBtn.addEventListener('click', () => toggleVec('vel'));
+        radialBtn.addEventListener('click', () => toggleVec('radial'));
+        tangBtn.addEventListener('click', () => toggleVec('tang'));
+        totalBtn.addEventListener('click', () => toggleVec('total'));
+        
+        pauseBtn.addEventListener('click', () => {
+            paused = !paused;
+            pauseBtn.textContent = paused ? "▶️ Resume" : "⏸️ Pause";
+            if (!paused) { lastTimestamp = null; requestAnimationFrame(animationLoop); }
+            else drawScene();
+        });
+        
+        slowmoSlider.addEventListener('input', (e) => {
+            slowMotionFactor = parseFloat(e.target.value);
+            slowmoValueSpan.textContent = slowMotionFactor.toFixed(2) + "x";
+            if(paused) drawScene();
+        });
+        
+        vectorScaleSlider.addEventListener('input', (e) => {
+            vectorScale = parseFloat(e.target.value);
+            vectorScaleSpan.textContent = vectorScale.toFixed(2) + "x";
+            if(paused) drawScene();
+        });
+        
+        ampSlider.addEventListener('input', (e) => {
+            const deg = parseFloat(e.target.value);
+            angleSpan.innerText = Math.round(deg) + "°";
+            theta = deg * Math.PI / 180;
+            thetaDot = 0;
+            lastTimestamp = null;
+            if(paused) drawScene();
+        });
+        
+        // --- enhanced vector drawing with thick lines, glow and labels
+        function drawArrow(fromX, fromY, toX, toY, color, labelText = null, lineWidth = 3.2, headSize = 11) {
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const length = Math.hypot(dx, dy);
+            if (length < 1.2) return;
+            
+            const ux = dx / length;
+            const uy = dy / length;
+            const arrowWing = headSize * 0.65;
+            const arrowLen = headSize;
+            
+            const tipX = toX;
+            const tipY = toY;
+            const shaftEndX = tipX - ux * arrowLen * 0.55;
+            const shaftEndY = tipY - uy * arrowLen * 0.55;
+            
+            ctx.shadowBlur = 3;
+            ctx.shadowColor = color;
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(shaftEndX, shaftEndY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            const perpX = -uy;
+            const perpY = ux;
+            const leftX = tipX - ux * arrowLen + perpX * arrowWing;
+            const leftY = tipY - uy * arrowLen + perpY * arrowWing;
+            const rightX = tipX - ux * arrowLen - perpX * arrowWing;
+            const rightY = tipY - uy * arrowLen - perpY * arrowWing;
+            
+            ctx.beginPath();
+            ctx.moveTo(tipX, tipY);
+            ctx.lineTo(leftX, leftY);
+            ctx.lineTo(rightX, rightY);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            
+            if (labelText) {
+                ctx.shadowBlur = 1;
+                ctx.font = "bold 13px 'Segoe UI', system-ui";
+                ctx.fillStyle = color;
+                ctx.textAlign = "center";
+                const labelX = tipX + ux * 16;
+                const labelY = tipY + uy * 16;
+                ctx.fillText(labelText, labelX, labelY);
+            }
+            ctx.shadowBlur = 0;
+        }
+        
+        function getBobPosition() {
+            const bx = pivot.x + L * Math.sin(theta);
+            const by = pivot.y + L * Math.cos(theta);
+            return { bx, by };
+        }
+        
+        // ---- compute velocity vector (tangential only, magnitude = L * |thetaDot|, direction along tangent)
+        function getVelocityVector(bx, by) {
+            // radial unit from bob to pivot
+            const dx = pivot.x - bx;
+            const dy = pivot.y - by;
+            const dist = Math.hypot(dx, dy);
+            const radUnitX = dx / dist;
+            const radUnitY = dy / dist;
+            // tangential unit (direction of increasing theta, perpendicular)
+            const tanUnitX = -radUnitY;
+            const tanUnitY = radUnitX;
+            const velMag = L * Math.abs(thetaDot);
+            // sign: positive thetaDot => counterclockwise => direction follows tanUnit
+            const direction = Math.sign(thetaDot);
+            const vx = tanUnitX * velMag * direction;
+            const vy = tanUnitY * velMag * direction;
+            return { vx, vy, mag: velMag };
+        }
+        
+        // ---- acceleration vectors (radial, tangential, resultant)
+        function getAccelerationVectors(bx, by) {
+            const omega0sq = (gEarth / L) * PHYS_SCALE;
+            const thetaDotDot = - omega0sq * Math.sin(theta);
+            const radialMag = L * thetaDot * thetaDot;      // centripetal magnitude
+            const tangMagSigned = L * thetaDotDot;          // signed tangential
+            
+            const dx = pivot.x - bx;
+            const dy = pivot.y - by;
+            const dist = Math.hypot(dx, dy);
+            const radUnitX = dx / dist;
+            const radUnitY = dy / dist;
+            const tanUnitX = -radUnitY;
+            const tanUnitY = radUnitX;
+            
+            const arx = radUnitX * radialMag;
+            const ary = radUnitY * radialMag;
+            const atx = tanUnitX * tangMagSigned;
+            const aty = tanUnitY * tangMagSigned;
+            
+            return { arx, ary, atx, aty, radialMag, tangMagSigned };
+        }
+        
+        // draw full scene with velocity + acceleration vectors
+        function drawScene() {
+            if (!ctx) return;
+            ctx.clearRect(0, 0, W, H);
+            
+            const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const gradBg = ctx.createLinearGradient(0, 0, 0, H);
+            gradBg.addColorStop(0, isDarkMode ? '#0f172a' : '#f1f5f9');
+            gradBg.addColorStop(1, isDarkMode ? '#1e293b' : '#e2e8f0');
+            ctx.fillStyle = gradBg;
+            ctx.fillRect(0, 0, W, H);
+            
+            const { bx, by } = getBobPosition();
+            
+            // Draw string
+            ctx.beginPath();
+            ctx.moveTo(pivot.x, pivot.y);
+            ctx.lineTo(bx, by);
+            ctx.strokeStyle = isDarkMode ? '#94a3b8' : '#5b6e8c';
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
+            
+            // Pivot
+            ctx.fillStyle = isDarkMode ? '#cbd5e1' : '#2d3e5f';
+            ctx.beginPath();
+            ctx.arc(pivot.x, pivot.y, 8, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.fillStyle = isDarkMode ? '#f1f5f9' : '#e2e8f0';
+            ctx.beginPath();
+            ctx.arc(pivot.x, pivot.y, 4, 0, 2*Math.PI);
+            ctx.fill();
+            
+            // Bob (glossy)
+            const gradBob = ctx.createRadialGradient(bx-6, by-6, 5, bx, by, 24);
+            gradBob.addColorStop(0, isDarkMode ? '#8b9dc3' : '#6c8fc7');
+            gradBob.addColorStop(1, isDarkMode ? '#2c3e66' : '#1f4896');
+            ctx.fillStyle = gradBob;
+            ctx.beginPath();
+            ctx.arc(bx, by, 22, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffffc0';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            
+            // ---- Compute vectors ----
+            const velVec = getVelocityVector(bx, by);
+            const accVecs = getAccelerationVectors(bx, by);
+            
+            const MAX_VISUAL_LEN = 210;
+            
+            // Velocity vector (purple) - scaled with user vectorScale factor
+            if (showVelocity && Math.abs(thetaDot) > 0.02) {
+                let vxScaled = velVec.vx * vectorScale;
+                let vyScaled = velVec.vy * vectorScale;
+                let vLen = Math.hypot(vxScaled, vyScaled);
+                if (vLen > MAX_VISUAL_LEN) {
+                    vxScaled = vxScaled * (MAX_VISUAL_LEN / vLen);
+                    vyScaled = vyScaled * (MAX_VISUAL_LEN / vLen);
+                }
+                drawArrow(bx, by, bx + vxScaled, by + vyScaled, '#c084fc', 'v', 3.5, 12);
+            }
+            
+            // Acceleration vectors: radial, tangential, resultant
+            let radVecX = accVecs.arx * vectorScale;
+            let radVecY = accVecs.ary * vectorScale;
+            let tanVecX = accVecs.atx * vectorScale;
+            let tanVecY = accVecs.aty * vectorScale;
+            
+            let radLen = Math.hypot(radVecX, radVecY);
+            let tanLen = Math.hypot(tanVecX, tanVecY);
+            if (radLen > MAX_VISUAL_LEN) { radVecX = radVecX * (MAX_VISUAL_LEN/radLen); radVecY = radVecY * (MAX_VISUAL_LEN/radLen); }
+            if (tanLen > MAX_VISUAL_LEN) { tanVecX = tanVecX * (MAX_VISUAL_LEN/tanLen); tanVecY = tanVecY * (MAX_VISUAL_LEN/tanLen); }
+            
+            if (showRadial && accVecs.radialMag > 0.03) {
+                drawArrow(bx, by, bx + radVecX, by + radVecY, '#378ADD', 'aᵣ', 3.2, 11);
+            }
+            if (showTang && Math.abs(accVecs.tangMagSigned) > 0.02) {
+                drawArrow(bx, by, bx + tanVecX, by + tanVecY, '#D85A30', 'aₜ', 3.2, 11);
+            }
+            if (showTotal) {
+                let resX = radVecX + tanVecX;
+                let resY = radVecY + tanVecY;
+                let resLen = Math.hypot(resX, resY);
+                if (resLen > MAX_VISUAL_LEN * 0.98) {
+                    resX = resX * (MAX_VISUAL_LEN * 0.95 / resLen);
+                    resY = resY * (MAX_VISUAL_LEN * 0.95 / resLen);
+                }
+                if (resLen > 1.5) {
+                    drawArrow(bx, by, bx + resX, by + resY, '#639922', 'a', 3.8, 12);
+                }
+            }
+            
+            // Angle arc
+            ctx.beginPath();
+            const arcR = 54;
+            const startAng = Math.PI/2;
+            const endAng = startAng + theta;
+            ctx.arc(pivot.x, pivot.y, arcR, startAng, endAng, theta < 0);
+            ctx.strokeStyle = isDarkMode ? '#a0b4d0' : '#5f7faf';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            const midAng = startAng + theta * 0.5;
+            const labelX = pivot.x + (arcR + 14) * Math.cos(midAng);
+            const labelY = pivot.y + (arcR + 10) * Math.sin(midAng);
+            ctx.font = "bold 14px 'Segoe UI'";
+            ctx.fillStyle = isDarkMode ? '#cbd5e6' : '#2c4763';
+            ctx.fillText("θ", labelX, labelY);
+            
+            // ---- info panel ----
+            const velMagVal = (L * Math.abs(thetaDot)).toFixed(1);
+            const radialMagVal = accVecs.radialMag.toFixed(1);
+            const tangMagVal = Math.abs(accVecs.tangMagSigned).toFixed(1);
+            const phaseMsg = (Math.abs(theta) < 0.07) ? "⚖️ Equilibrium: v=max, aₜ=0, aᵣ=max" :
+                              (Math.abs(theta) > (parseFloat(ampSlider.value)*Math.PI/180)*0.9) ? "⬆️ Extreme: v=0, aₜ=max, aᵣ=0" :
+                              "🌀 Moving: both velocity & acceleration components";
+            
+            ctx.font = "11px system-ui";
+            ctx.fillStyle = isDarkMode ? "#b9c7dd" : "#2c3e50";
+            ctx.textAlign = "left";
+            ctx.fillText(phaseMsg, 18, H - 42);
+            
+            ctx.font = "10px monospace";
+            ctx.fillStyle = isDarkMode ? "#9bb1cc" : "#475569";
+            const slowTxt = slowMotionFactor < 0.99 ? `🐢 ${slowMotionFactor.toFixed(2)}x` : `⚡ Normal`;
+            ctx.fillText(`${slowTxt}  |  θ = ${(theta*180/Math.PI).toFixed(1)}°  |  ω = ${thetaDot.toFixed(2)} rad/s  |  v = ${velMagVal} px/s`, 18, H - 28);
+            ctx.fillText(`📐 Vector scale: ${vectorScale.toFixed(2)}x  |  aᵣ = ${radialMagVal}  aₜ = ${tangMagVal}  |  Resultant a = ${Math.hypot(accVecs.arx+accVecs.atx, accVecs.ary+accVecs.aty).toFixed(1)}`, 18, H - 14);
+            
+            // Velocity insight
+            if (showVelocity && Math.abs(thetaDot) > 0.05) {
+                ctx.font = "9px system-ui";
+                ctx.fillStyle = "#c084fc";
+                ctx.fillText("⟶ Velocity is always tangential (perpendicular to string)", 18, H - 56);
+            }
+        }
+        
+        // ---- physics update with slow motion ----
+        function updatePhysics(dtReal) {
+            if (paused) return;
+            if (dtReal > 0.033) dtReal = 0.033;
+            const dtEff = dtReal * slowMotionFactor;
+            if (dtEff <= 0) return;
+            const omega0sq = (gEarth / L) * PHYS_SCALE;
+            const angularAcc = - omega0sq * Math.sin(theta);
+            thetaDot += angularAcc * dtEff;
+            theta += thetaDot * dtEff;
+        }
+        
+        let animId = null;
+        function animationLoop(nowMs) {
+            if (paused) {
+                drawScene();
+                animId = requestAnimationFrame(animationLoop);
+                return;
+            }
+            if (!lastTimestamp) {
+                lastTimestamp = nowMs;
+                animId = requestAnimationFrame(animationLoop);
+                drawScene();
+                return;
+            }
+            let dt = Math.min(0.033, (nowMs - lastTimestamp) / 1000);
+            if (dt > 0.001) updatePhysics(dt);
+            lastTimestamp = nowMs;
+            drawScene();
+            animId = requestAnimationFrame(animationLoop);
+        }
+        
+        // Initialize
+        updateButtonStyles();
+        slowMotionFactor = parseFloat(slowmoSlider.value);
+        slowmoValueSpan.textContent = slowMotionFactor.toFixed(2) + "x";
+        vectorScale = parseFloat(vectorScaleSlider.value);
+        vectorScaleSpan.textContent = vectorScale.toFixed(2) + "x";
+        
+        animId = requestAnimationFrame(animationLoop);
+        
+        // Keyboard shortcuts: S = slowmo cycle, Space = pause, V = toggle velocity visibility
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 's' || e.key === 'S') {
+                e.preventDefault();
+                if (slowMotionFactor === 1.0) { slowMotionFactor = 0.25; slowmoSlider.value = "0.25"; slowmoValueSpan.textContent = "0.25x"; }
+                else if (slowMotionFactor === 0.25) { slowMotionFactor = 0.1; slowmoSlider.value = "0.10"; slowmoValueSpan.textContent = "0.10x"; }
+                else { slowMotionFactor = 1.0; slowmoSlider.value = "1.0"; slowmoValueSpan.textContent = "1.00x"; }
+                if(paused) drawScene();
+            }
+            if (e.key === ' ' || e.key === 'Space') {
+                e.preventDefault();
+                paused = !paused;
+                pauseBtn.textContent = paused ? "▶️ Resume" : "⏸️ Pause";
+                if (!paused) lastTimestamp = null;
+                drawScene();
+            }
+            if (e.key === 'v' || e.key === 'V') {
+                e.preventDefault();
+                showVelocity = !showVelocity;
+                updateButtonStyles();
+                if(paused) drawScene();
+            }
+        });
+        
+        window.addEventListener('resize', () => drawScene());
+    })();
+</script>
+</body>
+</html>
